@@ -23,6 +23,7 @@
 #include <Audio.h>
 #include <play_sd_raw.h>
 #include <SerialFlash.h>
+#include <Bounce.h>
 
 /************  SETUP FOR RECORDING  ************/
 AudioInputI2S            i2s2;           //xy=105,63
@@ -41,14 +42,15 @@ char *curr_tag;
 AudioPlaySdRaw message;
 #define RST_PIN          37
 #define SS_PIN           38
-#define NEW_MOSI_PIN     28
-#define NEW_MISO_PIN     39
-#define NEW_SCK_PIN      27
 #define SDCARD_CS_PIN    10
+#define SDCARD_MOSI_PIN  7
+#define SDCARD_MISO_PIN  8
+#define SDCARD_SCK_PIN   14
 MFRC522 mfrc522(SS_PIN, RST_PIN);  // Create MFRC522 instance.
 File frec;                         //file where data is recorded
 const int myInput = AUDIO_INPUT_LINEIN;
-const int BUTTON = 4;
+const int BUTTON = 32;
+Bounce buttonRecord = Bounce(BUTTON, 8);
 bool recording = false;
 
 /************  FORWARD DECLARATIONS FOR HELPERS  ************/
@@ -64,18 +66,20 @@ void stopRecording(char *filename);
  * ****************************************************************************************
  */
 void setup() {
+  pinMode(BUTTON, INPUT_PULLUP);
   Serial.begin(9600);
   SPI.begin();         // Init SPI bus
-  SPI.setMOSI(NEW_MOSI_PIN);
-  SPI.setMISO(NEW_MISO_PIN);
-  SPI.setSCK(NEW_SCK_PIN);
+  SPI.setMOSI(SDCARD_MOSI_PIN);
+  SPI.setMISO(SDCARD_MISO_PIN);
+  SPI.setSCK(SDCARD_SCK_PIN);
+  Serial.println("hang");
   mfrc522.PCD_Init();  // Init MFRC522 card
-
+  
   AudioMemory(60);
   sgtl5000_1.enable();
   sgtl5000_1.inputSelect(myInput);
   sgtl5000_1.volume(0.5);
-
+  
   if (!(SD.begin(SDCARD_CS_PIN))) {
     // stop here if no SD card, but print a message
     while (1) {
@@ -91,9 +95,11 @@ void setup() {
  * ****************************************************************************************
  */
 void loop() {
-  bool pressed = digitalRead(BUTTON);
+  buttonRecord.update();
   
-  if (pressed){
+  
+  if (buttonRecord.risingEdge()){
+    Serial.println("Recording");
     record(curr_tag);
   }
 
@@ -104,7 +110,7 @@ void loop() {
             // Select one of the cards
             if ( !mfrc522.PICC_ReadCardSerial()) return;
 
-            char file[4];
+            char file[mfrc522.uid.size];
             
             for (byte i = 0; i < mfrc522.uid.size; i++){
               file[i] = (mfrc522.uid.uidByte[i]);
@@ -132,6 +138,7 @@ void record(char *filename){
     return;
   }
   while(digitalRead(BUTTON)){
+    Serial.print(".");
     continueRecording();
   }
   stopRecording(filename);
