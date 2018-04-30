@@ -17,16 +17,14 @@
 
 
 /************  LIBRARIES  ************/
-#include <Wire.h>
 #include <SPI.h>
 #include <MFRC522.h>
 #include <SD.h>
 #include <Audio.h>
 #include <play_sd_raw.h>
-#include <play_sd_wav.h>
 #include <SerialFlash.h>
 
-/************  STUFF FOR THE RECORDING  ************/
+/************  SETUP FOR RECORDING  ************/
 AudioInputI2S            i2s2;           //xy=105,63
 AudioAnalyzePeak         peak1;          //xy=278,108
 AudioRecordQueue         queue1;         //xy=281,63
@@ -41,20 +39,24 @@ AudioControlSGTL5000     sgtl5000_1;     //xy=265,212
 /************  GLOBALS & PIN ASSIGNMENTS  ************/
 char *curr_tag;
 AudioPlaySdRaw message;
-#define RST_PIN         37
-#define SS_PIN          38
+#define RST_PIN          37
+#define SS_PIN           38
+#define NEW_MOSI_PIN     28
+#define NEW_MISO_PIN     39
+#define NEW_SCK_PIN      27
 #define SDCARD_CS_PIN    10
-#define SDCARD_MOSI_PIN  7
-#define SDCARD_SCK_PIN   14
 MFRC522 mfrc522(SS_PIN, RST_PIN);  // Create MFRC522 instance.
 File frec;                         //file where data is recorded
 const int myInput = AUDIO_INPUT_LINEIN;
 const int BUTTON = 4;
+bool recording = false;
 
 /************  FORWARD DECLARATIONS FOR HELPERS  ************/
 void record(char *filename);
 void play_msg(char *filename);
-
+void startRecording(char *filename);
+void continueRecording();
+void stopRecording(char *filename);
 
 
 /******************************************************************************************
@@ -64,11 +66,23 @@ void play_msg(char *filename);
 void setup() {
   Serial.begin(9600);
   SPI.begin();         // Init SPI bus
-  SPI.setMOSI(28);
-  SPI.setMISO(39);
-  SPI.setSCK(27);
+  SPI.setMOSI(NEW_MOSI_PIN);
+  SPI.setMISO(NEW_MISO_PIN);
+  SPI.setSCK(NEW_SCK_PIN);
   mfrc522.PCD_Init();  // Init MFRC522 card
-  
+
+  AudioMemory(60);
+  sgtl5000_1.enable();
+  sgtl5000_1.inputSelect(myInput);
+  sgtl5000_1.volume(0.5);
+
+  if (!(SD.begin(SDCARD_CS_PIN))) {
+    // stop here if no SD card, but print a message
+    while (1) {
+      Serial.println("Unable to access the SD card");
+      delay(500);
+    }
+  }
 }
 
 
@@ -77,19 +91,17 @@ void setup() {
  * ****************************************************************************************
  */
 void loop() {
-  bool rec = digitalRead(BUTTON);
-
-  if (rec){
+  bool pressed = digitalRead(BUTTON);
+  
+  if (pressed){
     record(curr_tag);
   }
+
 
   else {
       if (mfrc522.PICC_IsNewCardPresent()){
             
-            
-            ////////////////////////////
             // Select one of the cards
-            ////////////////////////////
             if ( !mfrc522.PICC_ReadCardSerial()) return;
 
             char file[4];
@@ -98,10 +110,9 @@ void loop() {
               file[i] = (mfrc522.uid.uidByte[i]);
             }
             
-            Serial.print("filename: '");
-            Serial.print(file);
-            Serial.println(".wav'");
-            curr_tag = file;
+            curr_tag = strcat(file,".RAW");
+            Serial.print("New tag: ");
+            Serial.println(curr_tag);
             play_msg(curr_tag);
             }
             mfrc522.PICC_HaltA();
@@ -111,11 +122,19 @@ void loop() {
 
 /******************************************************************************************
  *            record: while button is held, record from mic                               *
- *                        on release, write recording to SD card's memory                 *
+ *                        and write to SD card                                            *
  * ****************************************************************************************
  */
 void record(char *filename){
-  (void)filename;
+  startRecording(filename);
+  if (!recording){
+    Serial.println("Unable to write to SD card");
+    return;
+  }
+  while(digitalRead(BUTTON)){
+    continueRecording();
+  }
+  stopRecording(filename);
 }
 
 
@@ -130,7 +149,67 @@ void play_msg(char *filename){
   while (message.isPlaying()){
     Serial.println(message.positionMillis());
   }
+  message.stop();
 }
 
+
+/******************************************************************************************
+ *            startRecording: open SD file 'filename' and begin the recording queue       *
+ *                                                                                        *
+ * ****************************************************************************************
+ */
+void startRecording(char *filename) {
+  if (SD.exists(filename)) {
+    // The SD library writes new data to the end of the
+    // file, so to start a new recording, the old file
+    // must be deleted before new data is written.
+    SD.remove(filename);
+  }
+  frec = SD.open(filename, FILE_WRITE);
+  if (frec) {
+    Serial.println("Recording...");
+    queue1.begin();
+    recording = true;
+  }
+}
+
+
+/******************************************************************************************
+ *            continueRecording: Fetch 2 blocks from the audio library and copy           *
+ *               into a 512 byte buffer.  The Arduino SD library is most efficient        *
+ *               when full 512 byte sector size writes are used.                          *
+ * ****************************************************************************************
+ */
+void continueRecording() {
+  if (queue1.available() >= 2) {
+    byte buffer[512];
+    memcpy(buffer, queue1.readBuffer(), 256);
+    queue1.freeBuffer();
+    memcpy(buffer+256, queue1.readBuffer(), 256);
+    queue1.freeBuffer();
+    // write all 512 bytes to the SD card
+    frec.write(buffer, 512);
+  }
+}
+
+
+/******************************************************************************************
+ *            stopRecording: end the recording queue and close the SD file                *
+ *                                                                                        *
+ * ****************************************************************************************
+ */
+void stopRecording(char *filename) {
+  Serial.print("Recorded to ");
+  Serial.println(filename);
+  queue1.end();
+  if (recording) {
+    while (queue1.available() > 0) {
+      frec.write((byte*)queue1.readBuffer(), 256);
+      queue1.freeBuffer();
+    }
+    frec.close();
+  }
+  recording = false;
+}
 
 
