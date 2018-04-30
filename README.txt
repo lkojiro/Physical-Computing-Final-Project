@@ -7,7 +7,7 @@
       Process & Physical Documentation: http://PLACEHOLDER.url
 
 *******************************************************************
-		            Overview:
+		          <b>  Overview:  </b>
 
 The goal of this project was to create an 'assistive device' for an 
 assigned client from a community of older people.  This device 
