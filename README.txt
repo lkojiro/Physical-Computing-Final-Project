@@ -7,7 +7,7 @@
       Process & Physical Documentation: http://PLACEHOLDER.url
 
 *******************************************************************
-		            Overview:
+		            Overview:  
 
 The goal of this project was to create an 'assistive device' for an 
 assigned client from a community of older people.  This device 
@@ -30,11 +30,13 @@ recording, and then allows the user to record a new message to the file.
 *******************************************************************
 		   Noteable Hardware/Libraries:
 
-RFID Reader: MFRC522
+RFID Reader: MFRC522 https://playground.arduino.cc/Learning/MFRC522
 	Used to read from bookmark to turn tag's UID into a filename
 
 Audio Playback/Recording: Audio Adaptor Board for Teensy 3.0-3.6
 			  + Teensy audio Library, AudioPlaySdRaw
+			  https://www.pjrc.com/store/teensy3_audio.html
+			  https://www.pjrc.com/teensy/td_libs_AudioPlaySdRaw.html
 	Chip connects to SD card and enables playback to external
 	speakers and recording from built in mic.
  
