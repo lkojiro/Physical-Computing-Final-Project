@@ -14,7 +14,7 @@ assigned client from a community of older people.  This device
 should make some part of the client's life easier, more interesting,
 or enable them to do something they couldn't do otherwise.
 
-Our client, Joeseph, is an avid reader.  He and his wife are in 
+Our client, Joseph, is an avid reader.  He and his wife are in 
 multiple book clubs and between them will usually be reading
 at least 6 books concurrently.  To make keeping track of what
 is happening in each of these books easier, we envisioned
