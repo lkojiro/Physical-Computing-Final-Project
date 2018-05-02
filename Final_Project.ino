@@ -1,17 +1,17 @@
 /******************************************************************************************
  *                                                                                        *
-                          Intro to Physical Computing: Final Project
-                                       Bookmark Box
+ *                        Intro to Physical Computing: Final Project                      *
+ *                                     Bookmark Box                                       *
  *                                                                                        *
-                             Logan Kojiro  --  Kristie Lord
+ *                           Logan Kojiro  --  Kristie Lord                               *
  * ****************************************************************************************
-                Parts of this are modified from a MFRC522 library example; see
-         https://github.com/miguelbalboa/rfid for further details and other examples.
+ *              Parts of this are modified from a MFRC522 library example; see            *
+ *       https://github.com/miguelbalboa/rfid for further details and other examples.     *
  *                                                                                        *
-           Audio Recording is modified from example code with the teensy audio library
-                See Examples->Audio->Recorder
+ *         Audio Recording is modified from example code with the teensy audio library    *
+ *              See Examples->Audio->Recorder                                             *
  *                                                                                        *
-                                Released into the public domain.
+ *                              Released into the public domain.                          *
  * ****************************************************************************************
 */
 
@@ -52,7 +52,7 @@ bool recording = false;
 
 
 /******************************************************************************************
-                                          Setup:
+ *                                        Setup:                                          *
  * ****************************************************************************************
 */
 void setup() {
@@ -91,7 +91,7 @@ void setup() {
 
 
 /******************************************************************************************
-                                        Main Loop:
+ *                                      Main Loop:                                        *
  * ****************************************************************************************
 */
 void loop() {
@@ -108,17 +108,20 @@ void loop() {
     if (mfrc522.PICC_IsNewCardPresent()) {
       free(curr_tag);
       Serial.println("Found Card!");
-      
+
+      //make sure we can read the card
       if ( !mfrc522.PICC_ReadCardSerial()) return;
 
+      //construct the filename from the card's UID
       String file = "";
-
 
       for (byte i = 0; i < mfrc522.uid.size - 1; i++) {
         file += String(mfrc522.uid.uidByte[i]);
       }
       file += ".RAW";
 
+      //some arguments for SD functions must be of type (char *) 
+      //not String so we must convert the String to a Char*
       char *buf = (char*)malloc(sizeof(char) * (file.length() + 2));
       file.toCharArray(buf, file.length() + 1);
       curr_tag = buf;
@@ -133,8 +136,8 @@ void loop() {
 
 
 /******************************************************************************************
-              record: while button is held, record from mic
-                          and write to SD card
+ *            record: while button is held, record from mic                               *
+ *                         and write to SD card                                           *
  * ****************************************************************************************
 */
 void record() {
@@ -158,7 +161,7 @@ void record() {
 
 
 /******************************************************************************************
-              play_msg: open sound file from SD card and playback
+ *            play_msg: open sound file from SD card and playback                         *
  *                                                                                        *
  * ****************************************************************************************
 */
@@ -179,7 +182,7 @@ void play_msg(char *filename) {
 
 
 /******************************************************************************************
-              startRecording: open SD file 'filename' and begin the recording queue
+ *            startRecording: open SD file and begin the recording queue                  *
  *                                                                                        *
  * ****************************************************************************************
 */
@@ -201,9 +204,9 @@ void startRecording(char *filename) {
 
 
 /******************************************************************************************
-              continueRecording: Fetch 2 blocks from the audio library and copy
-                 into a 512 byte buffer.  The Arduino SD library is most efficient
-                 when full 512 byte sector size writes are used.
+ *            continueRecording: Fetch 2 blocks from the audio library and copy           *
+ *                into a 512 byte buffer.  The Arduino SD library is most efficient       *
+ *                when full 512 byte sector size writes are used.                         *
  * ****************************************************************************************
 */
 void continueRecording() {
@@ -220,13 +223,15 @@ void continueRecording() {
 
 
 /******************************************************************************************
-              stopRecording: end the recording queue and close the SD file
+ *            stopRecording: stop recording to the queue, save additional data left       *
+ *                           on the queue, and close the SD file                          *
  *                                                                                        *
  * ****************************************************************************************
 */
 void stopRecording(char *filename) {
   queue1.end();
   if (recording) {
+    //write the rest of the audio buffer to the file and close it
     while (queue1.available() > 0) {
       frec.write((byte*)queue1.readBuffer(), 256);
       queue1.freeBuffer();
