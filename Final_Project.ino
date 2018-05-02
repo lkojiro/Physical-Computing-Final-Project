@@ -50,13 +50,6 @@ Bounce buttonRecord = Bounce(BUTTON, 8);
 char *curr_tag = NULL;
 bool recording = false;
 
-/************  FORWARD DECLARATIONS FOR HELPERS  ************/
-void record();
-void play_msg(char *filename);
-void startRecording(char *filename);
-void continueRecording();
-void stopRecording(char *filename);
-
 
 /******************************************************************************************
                                           Setup:
@@ -115,7 +108,7 @@ void loop() {
     if (mfrc522.PICC_IsNewCardPresent()) {
       free(curr_tag);
       Serial.println("Found Card!");
-      // Select one of the cards
+      
       if ( !mfrc522.PICC_ReadCardSerial()) return;
 
       String file = "";
@@ -123,15 +116,12 @@ void loop() {
 
       for (byte i = 0; i < mfrc522.uid.size - 1; i++) {
         file += String(mfrc522.uid.uidByte[i]);
-        Serial.println(String(mfrc522.uid.uidByte[i]));
       }
       file += ".RAW";
 
       char *buf = (char*)malloc(sizeof(char) * (file.length() + 2));
       file.toCharArray(buf, file.length() + 1);
-      Serial.println(buf);
       curr_tag = buf;
-      
 
       Serial.print("Tag Filename: ");
       Serial.println(curr_tag);
@@ -149,14 +139,15 @@ void loop() {
 */
 void record() {
   if (curr_tag == NULL) {
-    Serial.println("No Card has been tapped");
+    Serial.println("ERROR: No Card has been tapped");
     return;
   }
-  Serial.print("Trying to record to ");
-  Serial.println(curr_tag);
+  Serial.print("Recording to file ");
+  Serial.print(curr_tag);
+  Serial.println("...");
   startRecording(curr_tag);
   if (!recording) {
-    Serial.println("Unable to write to SD card");
+    Serial.println("ERROR: Unable to write to SD card");
     return;
   }
   while (!digitalRead(BUTTON)) {
@@ -172,18 +163,18 @@ void record() {
  * ****************************************************************************************
 */
 void play_msg(char *filename) {
-  Serial.println("Playing Message...");
-  Serial.println(filename);
+  Serial.print("Playing Message from file ");
+  Serial.print(filename);
+  Serial.println("...");
   if (!SD.exists(filename)) {
-    Serial.println("ERROR: no recording for this tag");
-    //Serial.println(filename);
+    Serial.println("No recording for this tag yet");
     return;
   }
   playRaw1.play(filename);
   while (playRaw1.isPlaying()) {
   }
   playRaw1.stop();
-  Serial.println("\ndone.");
+  Serial.println("\nDone.");
 }
 
 
