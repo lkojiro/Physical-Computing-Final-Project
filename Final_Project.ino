@@ -122,7 +122,7 @@ void loop() {
 
       //some arguments for SD functions must be of type (char *) 
       //not String so we must convert the String to a Char*
-      char *buf = (char*)malloc(sizeof(char) * (file.length() + 2));
+      char *buf = (char*)malloc(sizeof(char) * (file.length() + 1));
       file.toCharArray(buf, file.length() + 1);
       curr_tag = buf;
 
