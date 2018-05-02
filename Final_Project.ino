@@ -1,19 +1,19 @@
 /******************************************************************************************
  *                                                                                        *
- *                        Intro to Physical Computing: Final Project                      *
- *                                     Bookmark Box                                       *
+                          Intro to Physical Computing: Final Project
+                                       Bookmark Box
  *                                                                                        *
- *                           Logan Kojiro  --  Kristie Lord                               *
+                             Logan Kojiro  --  Kristie Lord
  * ****************************************************************************************
- *              Parts of this are modified from a MFRC522 library example; see            *
- *       https://github.com/miguelbalboa/rfid for further details and other examples.     *
+                Parts of this are modified from a MFRC522 library example; see
+         https://github.com/miguelbalboa/rfid for further details and other examples.
  *                                                                                        *
- *         Audio Recording is modified from example code with the teensy audio library    *
- *              See Examples->Audio->Recorder                                             *
- *                                                                                        *  
- *                              Released into the public domain.                          *     
+           Audio Recording is modified from example code with the teensy audio library
+                See Examples->Audio->Recorder
+ *                                                                                        *
+                                Released into the public domain.
  * ****************************************************************************************
- */
+*/
 
 
 /************  LIBRARIES  ************/
@@ -37,21 +37,21 @@ AudioConnection          patchCord4(playRaw1, 0, i2s1, 1);
 AudioControlSGTL5000     sgtl5000_1;     //xy=265,212
 
 /************  GLOBALS & PIN ASSIGNMENTS  ************/
-char *curr_tag = "TEST.RAW";
 #define RST_PIN          37
 #define SS_PIN           38
 #define SDCARD_CS_PIN    10
 #define SDCARD_MOSI_PIN  7
 #define SDCARD_SCK_PIN   14
-//MFRC522 mfrc522(SS_PIN, RST_PIN);  // Create MFRC522 instance.
 const int myInput = AUDIO_INPUT_MIC;
-File frec;                         //file where data is recorded
 const int BUTTON = 32;
+File frec;                         //file where data is recorded
+MFRC522 mfrc522(SS_PIN, RST_PIN);  // Create MFRC522 instance.
 Bounce buttonRecord = Bounce(BUTTON, 8);
+char *curr_tag = NULL;
 bool recording = false;
 
 /************  FORWARD DECLARATIONS FOR HELPERS  ************/
-void record(char *filename);
+void record();
 void play_msg(char *filename);
 void startRecording(char *filename);
 void continueRecording();
@@ -59,25 +59,26 @@ void stopRecording(char *filename);
 
 
 /******************************************************************************************
- *                                        Setup:                                          *
+                                          Setup:
  * ****************************************************************************************
- */
+*/
 void setup() {
   pinMode(BUTTON, INPUT_PULLUP);
-  Serial.begin(9600);
-  SPI.begin();         // Init SPI bus
 
-  
-  Serial.println("Initializing Card...");
-  //mfrc522.PCD_Init();  // Init MFRC522 card
-  Serial.println("done.");
   AudioMemory(60);
   sgtl5000_1.enable();
   sgtl5000_1.inputSelect(myInput);
   sgtl5000_1.volume(0.5);
 
+  Serial.begin(9600);
   SPI.setMOSI(SDCARD_MOSI_PIN);
   SPI.setSCK(SDCARD_SCK_PIN);
+  SPI.begin();
+  Serial.println("Initializing Card...");
+  mfrc522.PCD_Init();  // Init MFRC522 card
+  mfrc522.PCD_DumpVersionToSerial(); //show details of card reader module
+  Serial.println("Done.");
+
 
   Serial.println("Initializing SD Card...");
   if (!(SD.begin(SDCARD_CS_PIN))) {
@@ -88,81 +89,98 @@ void setup() {
     }
   }
   Serial.println("Done.");
-  
+
+
+
+
   Serial.println("\n\n--Begin Main--\n\n");
 }
 
 
 /******************************************************************************************
- *                                      Main Loop:                                        *
+                                        Main Loop:
  * ****************************************************************************************
- */
+*/
 void loop() {
   buttonRecord.update();
-  
-  
-  if (buttonRecord.fallingEdge()){
-    record(curr_tag);
+
+
+  if (buttonRecord.fallingEdge()) {
+    Serial.println(curr_tag);
+    record();
   }
 
 
   else {
-//      if (mfrc522.PICC_IsNewCardPresent()){
-//            Serial.println("Found Card!");
-//            // Select one of the cards
-//            if ( !mfrc522.PICC_ReadCardSerial()) return;
-//
-//            char file[mfrc522.uid.size];
-//            
-//            for (byte i = 0; i < mfrc522.uid.size; i++){
-//              file[i] = (mfrc522.uid.uidByte[i]);
-//            }
-//            
-//            curr_tag = strcat(file,".RAW");
-//            Serial.print("New tag: ");
-//            Serial.println(curr_tag);
-//            play_msg(curr_tag);
-//            }
-//            mfrc522.PICC_HaltA();
+    if (mfrc522.PICC_IsNewCardPresent()) {
+      free(curr_tag);
+      Serial.println("Found Card!");
+      // Select one of the cards
+      if ( !mfrc522.PICC_ReadCardSerial()) return;
+
+      String file = "";
+
+
+      for (byte i = 0; i < mfrc522.uid.size - 1; i++) {
+        file += String(mfrc522.uid.uidByte[i]);
+        Serial.println(String(mfrc522.uid.uidByte[i]));
+      }
+      file += ".RAW";
+
+      char *buf = (char*)malloc(sizeof(char) * (file.length() + 2));
+      file.toCharArray(buf, file.length() + 1);
+      Serial.println(buf);
+      curr_tag = buf;
+      
+
+      Serial.print("Tag Filename: ");
+      Serial.println(curr_tag);
+      play_msg(curr_tag);
+    }
+    mfrc522.PICC_HaltA();
   }
 }
 
 
 /******************************************************************************************
- *            record: while button is held, record from mic                               *
- *                        and write to SD card                                            *
+              record: while button is held, record from mic
+                          and write to SD card
  * ****************************************************************************************
- */
-void record(char *filename){
-  if (filename == NULL){
+*/
+void record() {
+  if (curr_tag == NULL) {
     Serial.println("No Card has been tapped");
     return;
   }
-  startRecording(filename);
-  if (!recording){
+  Serial.print("Trying to record to ");
+  Serial.println(curr_tag);
+  startRecording(curr_tag);
+  if (!recording) {
     Serial.println("Unable to write to SD card");
     return;
   }
-  while(!digitalRead(BUTTON)){
+  while (!digitalRead(BUTTON)) {
     continueRecording();
   }
-  stopRecording(filename);
+  stopRecording(curr_tag);
 }
 
 
 /******************************************************************************************
- *            play_msg: open sound file from SD card and playback                         *
+              play_msg: open sound file from SD card and playback
  *                                                                                        *
  * ****************************************************************************************
- */
-void play_msg(char *filename){
+*/
+void play_msg(char *filename) {
   Serial.println("Playing Message...");
-  if (!SD.exists("RECORD.RAW")){
+  Serial.println(filename);
+  if (!SD.exists(filename)) {
     Serial.println("ERROR: no recording for this tag");
+    //Serial.println(filename);
     return;
   }
-  playRaw1.play("RECORD.RAW");
-  while (playRaw1.isPlaying()){
+  playRaw1.play(filename);
+  while (playRaw1.isPlaying()) {
   }
   playRaw1.stop();
   Serial.println("\ndone.");
@@ -170,19 +188,20 @@ void play_msg(char *filename){
 
 
 /******************************************************************************************
- *            startRecording: open SD file 'filename' and begin the recording queue       *
+              startRecording: open SD file 'filename' and begin the recording queue
  *                                                                                        *
  * ****************************************************************************************
- */
+*/
 void startRecording(char *filename) {
   Serial.println("Recording...");
-  if (SD.exists("TEST.RAW")) {
+  if (SD.exists(filename)) {
     // The SD library writes new data to the end of the
     // file, so to start a new recording, the old file
     // must be deleted before new data is written.
-    SD.remove("TEST.RAW");
+    SD.remove(filename);
   }
-  frec = SD.open("TEST.RAW", FILE_WRITE);
+  frec = SD.open(filename, FILE_WRITE);
+  Serial.println(filename);
   if (frec) {
     queue1.begin();
     recording = true;
@@ -191,33 +210,29 @@ void startRecording(char *filename) {
 
 
 /******************************************************************************************
- *            continueRecording: Fetch 2 blocks from the audio library and copy           *
- *               into a 512 byte buffer.  The Arduino SD library is most efficient        *
- *               when full 512 byte sector size writes are used.                          *
+              continueRecording: Fetch 2 blocks from the audio library and copy
+                 into a 512 byte buffer.  The Arduino SD library is most efficient
+                 when full 512 byte sector size writes are used.
  * ****************************************************************************************
- */
+*/
 void continueRecording() {
   if (queue1.available() >= 2) {
     byte buffer[512];
     memcpy(buffer, queue1.readBuffer(), 256);
     queue1.freeBuffer();
-    memcpy(buffer+256, queue1.readBuffer(), 256);
+    memcpy(buffer + 256, queue1.readBuffer(), 256);
     queue1.freeBuffer();
     // write all 512 bytes to the SD card
     frec.write(buffer, 512);
-    Serial.print(buffer[0]);
-    Serial.print(buffer[1]);
-    Serial.print(buffer[256]);
-    Serial.println(buffer[257]);
   }
 }
 
 
 /******************************************************************************************
- *            stopRecording: end the recording queue and close the SD file                *
+              stopRecording: end the recording queue and close the SD file
  *                                                                                        *
  * ****************************************************************************************
- */
+*/
 void stopRecording(char *filename) {
   queue1.end();
   if (recording) {
@@ -230,8 +245,6 @@ void stopRecording(char *filename) {
   recording = false;
   Serial.print("\nRecorded to ");
   Serial.println(filename);
-  delay(2500);
-  play_msg("RECORD.RAW");
 }
 
 
