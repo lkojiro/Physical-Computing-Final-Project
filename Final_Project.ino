@@ -25,16 +25,16 @@
 #include <Bounce.h>
 
 /************  SETUP FOR RECORDING  ************/
-AudioInputI2S            i2s2;           //xy=105,63
-AudioAnalyzePeak         peak1;          //xy=278,108
-AudioRecordQueue         queue1;         //xy=281,63
-AudioPlaySdRaw           playRaw1;       //xy=302,157
-AudioOutputI2S           i2s1;           //xy=470,120
+AudioInputI2S            i2s2;           
+AudioAnalyzePeak         peak1;     
+AudioRecordQueue         queue1;    
+AudioPlaySdRaw           playRaw1;  
+AudioOutputI2S           i2s1;    
 AudioConnection          patchCord1(i2s2, 0, queue1, 0);
 AudioConnection          patchCord2(i2s2, 0, peak1, 0);
 AudioConnection          patchCord3(playRaw1, 0, i2s1, 0);
 AudioConnection          patchCord4(playRaw1, 0, i2s1, 1);
-AudioControlSGTL5000     sgtl5000_1;     //xy=265,212
+AudioControlSGTL5000     sgtl5000_1;
 
 /************  GLOBALS & PIN ASSIGNMENTS  ************/
 #define RST_PIN          37
