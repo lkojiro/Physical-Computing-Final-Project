@@ -82,10 +82,6 @@ void setup() {
     }
   }
   Serial.println("Done.");
-
-
-
-
   Serial.println("\n\n--Begin Main--\n\n");
 }
 
