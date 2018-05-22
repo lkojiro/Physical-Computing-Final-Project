@@ -4,7 +4,8 @@
 		    Logan Kojiro -- Kristie Lord		
 
 
-      Process & Physical Documentation: http://PLACEHOLDER.url
+      Process & Physical Documentation: 
+      https://courses.ideate.cmu.edu/60-223/s2018/work/book-reminder-by-dog-loving-duo-final-documentation/
 
 *******************************************************************
 		            Overview:  
